@@ -2,7 +2,7 @@
 #define FATEMACHINE_H
 
 #include <functional>
-#include <map>
+#include <unordered_map>
 
 template <typename TFate, typename TReq>
 class FateMachine
@@ -13,7 +13,7 @@ public:
         TFate destiny;
         std::function<void()> feat;
     };
-    using Rules = std::multimap<TFate, Quest>;
+    using Rules = std::unordered_multimap<TFate, Quest>;
 
     explicit FateMachine(const TFate initialFate);
     FateMachine(const Rules &rules, const TFate initialFate);
@@ -53,18 +53,26 @@ void FateMachine<TFate, TReq>::setRules(const Rules &rules)
 template<typename TFate, typename TReq>
 bool FateMachine<TFate, TReq>::tempt(TReq ts)
 {
-    const auto range = rules.equal_range(fate);
-    for (auto i = range.first; i != range.second; ++i)
-    {
-        auto t = i->second;
-        if (t.request == ts) {
-            fate = t.destiny;
-            if (t.feat) {
-                t.feat();
-            }
-            return true;
-        }
+    const auto questsRange = rules.equal_range(fate);
+    if (questsRange.first == questsRange.second) {
+        return false;
     }
+    const auto questPtr = std::find_if(questsRange.first,
+                                 questsRange.second,
+                                 [&ts](const std::pair<const TFate, Quest> &p)
+    {
+        return p.second.request == ts;
+    });
+
+    if (questPtr != questsRange.second) {
+        const auto quest = questPtr->second;
+        fate = quest.destiny;
+        if (quest.feat){
+            quest.feat();
+        }
+        return true;
+    }
+
     return false;
 }
 
